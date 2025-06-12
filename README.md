@@ -211,3 +211,67 @@ kubectl -n istio-system port-forward deployment/istio-ingressgateway 31380:8080
 
 and finally test in your browser:
 http://localhost:31380/rentalservice/cars
+
+### Security with Role-Based Access Control (RBAC)
+
+Check the kinds Role and RoleBinding: https://github.com/charroux/masterinfo/blob/main/deployment.yml
+
+#### Export the CA from Minikube (Minikube uses its own CA to manage the certificates
+```
+minikube ssh -- sudo cat /var/lib/minikube/certs/ca.crt > ca.crt
+minikube ssh -- sudo cat /var/lib/minikube/certs/ca.key > ca.key
+```
+
+#### Generate a private key for test-user
+```
+openssl genrsa -out test-user.key 2048
+```
+
+#### Generate a certificate signature request (CSR)
+```
+openssl req -new -key test-user.key -out test-user.csr -subj "/CN=test-user"
+```
+
+#### Sign the certificate with the Minikube CA
+```
+openssl x509 -req -in test-user.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out test-user.crt -days 365
+```
+
+#### Add the user test-user to the Kubernetes configuration
+```
+kubectl config set-credentials test-user \
+  --client-certificate=test-user.crt \
+  --client-key=test-user.key
+```
+
+Create a context for test-user in the namespace rbac-test:
+```
+kubectl config set-context test-user-context \
+--cluster=minikube \
+--namespace=rbac-test \
+--user=test-user
+```
+
+Change the context to test-user:
+```
+kubectl config use-context test-user-context
+```
+
+### Security tests
+Lister the pods from the namespace rbac-lab 
+```
+kubectl get pods
+```
+
+Check that a new pod creation is forbidden:
+```
+kubectl run unauthorized-pod --image=nginx
+```
+
+### Clean-up
+```
+kubectl config use-context minikube
+kubectl delete namespace rbac-test
+kubectl config delete-context test-user-context
+kubectl config unset users.test-user
+```
