@@ -258,7 +258,7 @@ kubectl config use-context test-user-context
 ```
 
 ### Security tests
-Lister the pods from the namespace rbac-lab 
+List the pods from the namespace rbac-test
 ```
 kubectl get pods
 ```
